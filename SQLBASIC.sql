@@ -1061,8 +1061,433 @@ group by department_id
 having count(*) >= 2
 order by department_id;
 
+--------------------------------------------------------------------------------
+show user;
+select sysdate from dual;
+--------------------------------------------------------------------------------
+
+---조인 초급 개발 필수 사항 ---
+select * from emp;
+select * from dept;
+
+/*
+create table M (M1 char(6) , M2 char(10));
+create table S (S1 char(6) , S2 char(10));
+create table X (X1 char(6) , X2 char(10));
+
+insert into M values('A','1');
+insert into M values('B','1');
+insert into M values('C','3');
+insert into M values(null,'3');
+commit;
+
+insert into S values('A','X');
+insert into S values('B','Y');
+insert into S values(null,'Z');
+commit;
+
+insert into X values('A','DATA');
+commit;
+*/
+select * from m;
+select * from s;
+select * from x;
+
+--등가조인 (equi join)
+--원테이블과 대응되는 테이블에 있는 컬럼의 데이터를 1:1 매핑
+--sql join (오라클) 간단
+--ANSI 문법 권장 >> inner join ~ on
+
+select *
+from m, s
+where m.m1 = s.s1;
+
+--ansi
+select *
+from m inner join s
+on m.m1 = s.s1;
+
+select *
+from emp join dept
+on emp.deptno = dept.deptno;
+
+select *
+from emp e join dept d
+on e.deptno = d.deptno;
+
+select *
+from s join x
+on s.s1 = x.x1;
+--------------------------------------------------------------------------------
+--여러개 테이블 조인
+select *
+from m, s, x
+where m.m1 = s.s1 and s.s1 = x.x1;
+
+select m.m1, m.m2, s.s2, x.x2
+from m, s, x
+where m.m1 = s.s1 and s.s1 = x.x1;
+
+--ansi 권장
+select *
+from m join s on m.m1 = s.s1
+       join x on s.s1 = x.x1;
+--------------------------------------------------------------------------------
+--HR
+show user;
+
+select * from employees;
+select * from departments;
+select * from locations;
+
+select e.employee_id, d.department_id, l.location_id
+from employees e join departments d on e.department_id = d.department_id
+                 join locations l on d.location_id = l.location_id;
+                 
+select * 
+from employees
+where department_id is null;
+--178	Kimberely	Grant 부서가 없음
+--같이 출력하고 싶어요
+
+select e.employee_id, 
+       e.last_name, 
+       d.department_id, 
+       d.department_name, 
+       l.location_id, 
+       l.city
+from employees e left join departments d on e.department_id = d.department_id
+                 join locations l on d.location_id = l.location_id;
+                 
+--------------------------------------------------------------------------------
+--KOSA
+show user;
+
+--비등가 (non-equi)
+--하나의 컬럼으로 매핑이 안되요 (컬럼을 2개 이상 사용)
+--문법(등가 문법 동일)
+select * from emp;
+select * from salgrade;
 
 
+select e.empno, e.ename, e.sal, s.grade
+from emp e join salgrade s
+on e.sal between s.losal and s.hisal;
+
+--------------------------------------------------------------------------------
+--outer join (equi join 선행되고 남아있는 데이터를 가져오는 방법)
+/*
+1. 주종관계 (주인이 되는 쪽에 남아있는 데이터 가져오는 방법)
+2. left outer join
+3. right outer join
+4. full outer join (left, right union)
+
+*/
+
+select *
+from m left outer join s
+on m.m1 = s.s1;
+
+select *
+from m right outer join s
+on m.m1 = s.s1;
+
+select *
+from m full outer join s
+on m.m1 = s.s1;
+
+--------------------------------------------------------------------------------
+--self join (자기참조 : 하나의 테이블에서 특정컬럼이 다른 컬럼을 참조하는 경우)
+--문법(x) > 등가조인 > 의미만 존재
+
+select * from emp;
+
+select e.empno, e.ename, m.empno, m.ename
+from emp e left outer join emp m on e.mgr = m.empno;
+
+--------------------------------------------------------------------------------
+select * from emp;
+select * from dept;
+select * from salgrade;
+
+-- 1. 사원들의 이름, 부서번호, 부서이름을 출력하라.
+select e.ename, e.deptno, d.dname
+from emp e left outer join dept d
+on e.deptno = d.deptno;
+
+-- 2. DALLAS에서 근무하는 사원의 이름, 직위, 부서번호, 부서이름을
+-- 출력하라.
+select e.ename, e.job, e.deptno, d.dname
+from emp e left outer join dept d
+on e.deptno = d.deptno
+where d.loc = 'DALLAS';
+
+-- 3. 이름에 'A'가 들어가는 사원들의 이름과 부서이름을 출력하라.
+select e.ename, d.dname
+from emp e left outer join dept d
+on e.deptno = d.deptno
+where e.ename like '%A%';
+
+-- 4. 사원이름과 그 사원이 속한 부서의 부서명, 그리고 월급을
+--출력하는데 월급이 3000이상인 사원을 출력하라.
+select e.ename, d.dname
+from emp e left outer join dept d
+on e.deptno = d.deptno
+where e.sal >= 3000;
+
+-- 5. 직위(직종)가 'SALESMAN'인 사원들의 직위와 그 사원이름, 그리고
+-- 그 사원이 속한 부서 이름을 출력하라.
+select e.job, e.ename, d.dname
+from emp e left outer join dept d
+on e.deptno = d.deptno
+where e.job = 'SALESMAN';
+
+-- 6. 커미션이 책정된 사원들의 사원번호, 이름, 연봉, 연봉+커미션,
+-- 급여등급을 출력하되, 각각의 컬럼명을 '사원번호', '사원이름',
+-- '연봉','실급여', '급여등급'으로 하여 출력하라.
+--(비등가 ) 1 : 1 매핑 대는 컬럼이 없다
+select e.empno as 사원번호, 
+       e.ename as 이름,
+       e.sal as 연봉,
+       e.sal + nvl(e.comm, 0) 실급여,
+       s.grade 급여등급
+from emp e left outer join salgrade s
+on e.sal between s.losal and s.hisal;
+
+-- 7. 부서번호가 10번인 사원들의 부서번호, 부서이름, 사원이름,
+-- 월급, 급여등급을 출력하라.
+select e.deptno, 
+       d.dname,
+       e.ename,
+       e.sal,
+       s.grade
+from emp e left outer join dept d on e.deptno = d.deptno 
+           left outer join salgrade s on e.sal between s.losal and s.hisal;
+
+-- 8. 부서번호가 10번, 20번인 사원들의 부서번호, 부서이름,
+-- 사원이름, 월급, 급여등급을 출력하라. 그리고 그 출력된
+-- 결과물을 부서번호가 낮은 순으로, 월급이 높은 순으로
+-- 정렬하라.
+select e.deptno, 
+       d.dname,
+       e.ename,
+       e.sal,
+       s.grade
+from emp e left outer join dept d on e.deptno = d.deptno 
+           left outer join salgrade s on e.sal between s.losal and s.hisal
+where e.deptno in(10, 20)
+order by e.deptno, e.sal desc;
+
+-- 9. 사원번호와 사원이름, 그리고 그 사원을 관리하는 관리자의
+-- 사원번호와 사원이름을 출력하되 각각의 컬럼명을 '사원번호',
+-- '사원이름', '관리자번호', '관리자이름'으로 하여 출력하라.
+--SELF JOIN (자기 자신테이블의 컬럼을 참조 하는 경우)
+select e.empno as 사원번호, 
+       e.ename as 사원이름, 
+       m.empno as 관리자번호,
+       m.ename as 관리자이름
+from emp e left outer join emp m on e.mgr = m.empno;
+
+--사원 테이블에서 사원들의 평균 월급보다 더 많은 월급을 받는 사원의 사번, 이름, 급여를 출력하세요
+
+select *
+from emp
+where sal > (select avg(sal) from emp);
+
+/*
+1. single row subquery : 서브쿼리의 실행결과가 단일컬럼에 단일 로우인 경우 (한 개의 값)
+ex) select sum(sal) from emp; ..max(), min()
+연산자 : =, !=, >, <
+2. mutli row subquery : 서브쿼리의 실행결과가 단일컬럼에 여러 개의 로우인 경우 (다중값)
+ex) select sal from emp
+
+문법적인 조건
+1. 괄호 안에 있어야 한다
+2. 단일 컬럼으로 구성
+3. 서브 쿼리가 단독으로 실행 가능
+
+서브쿼리와 메인 쿼리 관계
+1. 서브 쿼리 선행 실행되고 그 결과를 가지고 메인 쿼리가 실행된다.
+*/
+
+--사원테이블에서 jones의 급여보다 더 많은 급여를 받는 사원의 사번, 이름, 급여를 출력하세요.
+select sal from emp where ename = 'JONES';
+
+select empno, ename, sal
+from emp
+where sal > (select sal 
+             from emp 
+             where ename='JONES');
+
+--부서 번호가 30번인 사원과 같은 급여를 받는 모든 사원 정보를 출력하세요
+select * from emp
+where sal in (select sal from emp where deptno = 30);
+
+--부서 번호가 30번인 사원과 다른 급여를 받는 모든 사원의 정보를 출력하세요.
+select * from emp
+where sal not in (select sal from emp where deptno = 30);
+
+--부하직원이 있는 사원의사번과 이름을 출력하세요.
+select * from emp
+where empno in (select mgr from emp);
+
+select * from emp
+where empno not in (select nvl(mgr, 0) from emp);
+
+--king에게 보고하는 즉 직속 상관이 king인 사원의 사번 이름 직종 관리자 사번을 출력하세요
+select * from emp
+where mgr = (select empno from emp where ename = 'KING');
+
+--20번 부서의 사원중에서 가장 많은 급열르 받는 사원보다 더 많은 급여를 받는 사원의 사번, 이름 ,급여, 부서번호를 출력하세요
+select *
+from emp
+where sal > (select max(sal) from emp where deptno = 20);
+
+--실무에서 가장 많이 쓰이는 쿼리
+--자기 부서의 평균 월급보다 더 많은 월급을 받는 사원의 사번, 이름, 부서번호, 부서별 평균월급을 출력하세요
+select e.empno, e.ename, e.deptno, deptavgsal.avgsal
+from emp e join (select deptno, trunc(avg(sal)) as avgsal from emp group by deptno) deptavgsal on e.deptno = deptavgsal.deptno
+where sal > deptavgsal.avgsal;
 
 
+--1. 'SMITH'보다 월급을 많이 받는 사원들의 이름과 월급을 출력하라.
+select ename, sal
+from emp
+where sal > (select sal from emp where ename = 'SMITH');
+?
+--2. 10번 부서의 사원들과 같은 월급을 받는 사원들의 이름, 월급,
+-- 부서번호를 출력하라.
+select ename, sal, deptno
+from emp
+where sal in (select sal from emp where deptno = 10);
 
+--3. 'BLAKE'와 같은 부서에 있는 사원들의 이름과 고용일을 뽑는데
+-- 'BLAKE'는 빼고 출력하라.
+select ename, hiredate
+from emp
+where deptno = (select deptno from emp where ename = 'BLAKE') and ename != 'BLAKE';
+
+--4. 평균급여보다 많은 급여를 받는 사원들의 사원번호, 이름, 월급을
+-- 출력하되, 월급이 높은 사람 순으로 출력하라.
+SELECT EMPNO, ENAME, SAL
+FROM EMP
+WHERE SAL>(SELECT  AVG(SAL)  FROM EMP)
+ORDER BY SAL DESC;
+
+--5. 이름에 'T'를 포함하고 있는 사원들과 같은 부서에서 근무하고
+-- 있는 사원의 사원번호와 이름을 출력하라.
+SELECT EMPNO, ENAME
+FROM EMP
+WHERE DEPTNO IN(SELECT DEPTNO
+                FROM EMP
+                WHERE ENAME LIKE '%T%');
+--where deptno = 20 or deptno= 30
+
+--6. 30번 부서에 있는 사원들 중에서 가장 많은 월급을 받는 사원보다
+-- 많은 월급을 받는 사원들의 이름, 부서번호, 월급을 출력하라.
+--(단, ALL(and) 또는 ANY(or) 연산자를 사용할 것)
+SELECT ENAME, DEPTNO, SAL
+FROM EMP
+WHERE SAL > (SELECT MAX(SAL)
+             FROM EMP
+             WHERE DEPTNO=30);
+ 
+SELECT ENAME, DEPTNO, SAL
+FROM EMP
+WHERE SAL > ALL(SELECT SAL
+                FROM EMP
+                WHERE DEPTNO=30)
+ 
+--where sal > 1600 and sal > 1250 and sal > 2850 and sal > 1500 and sal > 950
+
+--7. 'DALLAS'에서 근무하고 있는 사원과 같은 부서에서 일하는 사원의
+-- 이름, 부서번호, 직업을 출력하라.
+select ename, deptno, job
+from emp
+where 
+
+--8. SALES 부서에서 일하는 사원들의 부서번호, 이름, 직업을 출력하라.
+select e.deptno, e.ename, e.job
+from emp e join dept d on e.deptno = d.deptno
+where d.dname = 'SALES';
+
+--9. 'KING'에게 보고하는 모든 사원의 이름과 급여를 출력하라
+--king 이 사수인 사람 (mgr 데이터가 king 사번)
+select ename, sal
+from emp
+where mgr = (select empno from emp where ename = 'KING');
+
+--10. 자신의 급여가 평균 급여보다 많고, 이름에 'S'가 들어가는
+-- 사원과 동일한 부서에서 근무하는 모든 사원의 사원번호, 이름,
+-- 급여를 출력하라.
+select empno, ename, sal
+from emp
+where sal > (select avg(sal) from emp) and
+      deptno in (select deptno from emp where ename like '%S%');
+
+--11. 커미션을 받는 사원과 부서번호, 월급이 같은 사원의
+-- 이름, 월급, 부서번호를 출력하라.
+select ename, sal, deptno
+from emp
+where deptno in(select deptno from emp where comm is not null) and
+      sal in(select sal from emp where comm is not null);
+
+--12. 30번 부서 사원들과 월급과 커미션이 같지 않은
+--사원들의 이름, 월급, 커미션을 출력하라.
+select ename, sal, comm
+from emp
+where sal not in(select sal from emp where deptno = 30) and
+      comm not in(select comm from emp where deptno = 30);
+      
+
+--------------------------------------------------------------------------------
+/*
+기본적인 SQL 용어
+
+DDL (데이터 정의어) : create, alter, drop, truncate ... rename, modify
+DML (데이터 조작어) : insert, update, delete (트랜잭션 : transaction)
+* 트랜잭션 : 논리적인 작업 단위(결과 : 성공 아니면 실패)
+* 은행 : A 계좌에서 1000원을 출금해서 B라는 계좌에 이체
+
+begin tran
+    update ....
+    update ....
+    insert ....
+end tran
+
+실무)
+작업 ..... 회사 DB select 잘 됨 ...... insert, update, delete 안되요
+1. 오라클 ... insert, update, delete (기본적으로 trans ~ 
+
+*/
+-- DML (오라클.pdf 168page)
+
+--------------------------------------------------------------------------------
+--자바 제어문 .... (무조건 암기)
+--1. insert
+
+create table temp(
+    id number primary key, --not null, unique (주민번호....)
+    name varchar2(20)
+);
+
+desc temp;
+select * from tab where tname = 'TEMP';
+
+--1. 일반적인 insert
+insert into temp(id, name) values(100, '홍길동');
+
+select * from temp;
+
+commit; -- 실제 반영
+
+select * from temp;
+
+--2. 생략
+insert into temp values(200, '김유신'); -- 주의 ...
+commit;
+
+insert into temp values(200);
+
+--3. insert 중복 데이터
+insert into temp(id, name) values(100, '김수한무');
