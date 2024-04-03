@@ -1491,3 +1491,543 @@ insert into temp values(200);
 
 --3. insert 중복 데이터
 insert into temp(id, name) values(100, '김수한무');
+
+--------------------------------------------------------------------------------
+-- SQL 프로그래밍적인 요소 (x)
+-- PL-SQL 변수, 제어문
+
+create table temp2 (id varchar2(50));
+
+--pl-sql
+--BEGIN
+--    FOR i IN 1..100 LOOP
+--        insert into temp2(id) values('A' || to_char(i));
+--    END LOOP;
+--END;
+
+select * from temp2;
+
+create table temp3(
+    memberid number(3), --3자리 정수
+    name varchar2(10), --default null 허용'
+    regdate date default sysdate --데이터 기본값 설정 (insert 하지 않으면 날짜 자동)
+);
+
+desc temp3;
+
+--1. 정상
+insert into temp3(memberid, name, regdate)
+values(100, '홍길동', '2024-04-03');
+
+select * from temp3;
+commit;
+
+insert into temp3(memberid, name)
+values(200, '김유신');
+commit;
+
+insert into temp3(memberid)
+values(300);
+
+--------------------------------------------------------------------------------
+-- 대량 데이터 삽입하기
+create table temp4(id number);
+create table temp5(num number);
+
+insert into temp4(id) values(1);
+insert into temp4(id) values(2);
+insert into temp4(id) values(3);
+insert into temp4(id) values(4);
+insert into temp4(id) values(5);
+insert into temp4(id) values(6);
+insert into temp4(id) values(7);
+insert into temp4(id) values(8);
+insert into temp4(id) values(9);
+insert into temp4(id) values(10);
+commit;
+
+select * from temp4;
+select * from temp5;
+
+--temp4에 있는 대량의 데이터를 temp5에 넣고 싶어요
+insert into temp5(num) 
+select id from temp4;
+
+select * from temp5;
+
+--2. 대량 데이터 삽입하기
+--데이터를 담을 테이블이 없고 .... >> 테이블 구조(복제):스키마
+
+create table copyemp
+as
+  select * from emp;
+  
+select * from copyemp;
+
+create table copyemp2
+as
+  select empno, ename from emp
+  where deptno = 20;
+  
+select * from copyemp2;
+
+--테이블의 구조 복제 (데이터 필요 없음)
+
+create table copyemp3
+as
+  select * from emp where 1=2;
+  
+select * from copyemp3;
+
+commit;
+--------------------------------------------------------------------------------
+--insert end--
+
+--update
+
+/*
+update 테이블명
+set 컬럼명 = 값, 컬럼명 = 값 ......
+where 조건절
+*/
+
+select * from copyemp;
+
+update copyemp
+set sal = 0;
+
+select * from copyemp;
+
+rollback;
+
+select * from copyemp;
+
+update copyemp
+set sal = 5555
+where deptno = 20;
+
+select * from copyemp;
+commit;
+
+update copyemp
+set sal = (select sum(sal) from emp);
+
+select * from copyemp;
+
+commit;
+
+update copyemp
+set ename = 'AAA', job = 'BBB', hiredate = sysdate, sal=(select max(sal) from emp)
+where empno = 7788;
+
+select * from copyemp;
+
+commit;
+--------------------------------------------------------------------------------
+--update end--
+
+--delete
+delete from copyemp;
+
+select * from copyemp;
+
+rollback;
+
+delete from copyemp
+where deptno = 10;
+
+select * from copyemp;
+
+commit;
+--------------------------------------------------------------------------------
+-----DELETE END-----------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+--오라클 pdf (138page)
+--테이블 생성하기
+
+--KOSA 계정 볼 수 있는 ...
+select * from tab;
+select * from tab where lower(tname) = 'emp';
+
+create table board (
+    boardid number, 
+    title varchar2(50), --50byte
+    content nvarchar2(2000), --2000자 (4000byte)
+    regdate date
+);
+
+desc board;
+
+--Tip)
+select * from user_tables where table_name = 'EMP';
+select * from col where lower(tname) = 'emp';
+-- 제약 확인
+select * from user_constraints where table_name = 'EMP';
+
+/*
+number
+char(10) 고정길이
+varchar2(10) 가변길이
+nvarchar 2byte (한글 영문자 고민하지않고 개수)
+*/
+
+--oracle 11g 가상컬럼(조합컬럼)
+--학생 성적 테이블
+--이름, 국어, 영어, 수학 (원칙)
+--총점, 평균 (추가한다 .. 조회 매번 한다)
+--관리 : 만약 어떤 학생 수학 변경 > 총점 평균도 변경해야함
+
+create table vtable(
+    no1 number,
+    no2 number,
+    no3 number GENERATED ALWAYS as (no1 + no2) VIRTUAL
+);
+
+select * from col where lower(tname) = 'vtable';
+
+insert into vtable(no1, no2) values(100, 200);
+
+select * from vtable;
+
+update vtable
+set no1 = 500;
+
+select * from vtable;
+
+commit;
+
+
+
+--실무에서 활용되는 코드
+-- 제품정보 (입고) : 분기별 데이터 추출(4분기)
+create table vtable2(
+   no number, --순번
+   p_code char(4), --제품코드 (A001 , B003)
+   p_date char(8), --입고일 (20230101)
+   p_qty number, --수량
+   p_bungi number(1) GENERATED ALWAYS as (
+                                            case when substr(p_date,5,2) in ('01','02','03') then 1
+                                                 when substr(p_date,5,2) in ('04','05','06') then 2
+                                                 when substr(p_date,5,2) in ('07','08','09') then 3
+                                                 else 4
+                                            end 
+                                         ) VIRTUAL
+);
+select * from col where lower(tname)= 'vtable2';
+
+insert into vtable2(p_date) values('20220101');
+insert into vtable2(p_date) values('20220522');
+insert into vtable2(p_date) values('20220601');
+insert into vtable2(p_date) values('20221111');
+insert into vtable2(p_date) values('20221201');
+commit;
+
+select * from vtable2 where p_bungi = 2;
+
+select * from vtable2;
+--------------------------------------------------------------------------------
+--테이블 만들고 수정 삭제
+--1. 테이블 생성하기
+create table temp6(id number);
+desc temp6;
+
+--2. 테이블 생성 후에 컬럼 추가하기
+alter table temp6
+add ename varchar2(20);
+
+desc temp6;
+
+--3. 기존 테이블에 있는 컬럼이름 잘못 표기 (ename -> username)
+alter table temp6
+rename column ename to username;
+
+desc temp6;
+
+--4. 기존 테이블에 있는 기존 컬럼의 타입 크기 수정(modify)
+alter table temp6
+modify (username varchar2(2000));
+
+desc temp6;
+
+--5. 기존 테이블에 있는 기존 컬럼의 삭제
+alter table temp6
+drop column username;
+
+desc temp6;
+
+--6. 테이블 전체가 필요 없어요
+--6.1 delete from emp >> 데이터만 삭제
+/*
+테이블 처음 만들면 크기  설정 >> 데이터 넣으면 >> 데이터 크기만큼 테이블 크기 증가
+처응 1M >> 10만건 >> 100M >> delete 10만건 삭제 >> 테이블 크기 >> 100M
+
+테이블 데이터 삭제 ..공간의 크기도 처음으로..
+truncate (where절 사용 못해요)
+처음 1M >> 10만건 >> 100M >> truncate >> 테이블의 크기 >> 1M
+DBA truncate table emp;
+*/
+
+--6
+drop table temp6;
+
+desc temp6; --ORA-04043: temp6 객체가 존재하지 않습니다.
+--------------------------------------------------------------------------------
+
+/*
+데이터 무결성 제약 조건의 종류 
+제 약 조 건 
+설     명 
+PRIMARY KEY(PK) 유일하게 테이블의 각행을 식별(NOT NULL과 UNIQUE조건을 만족) 
+FOREIGN KEY(FK) 열과 참조된 열 사이의 외래키 관계를 적용하고 설정합니다. 
+UNIQUE key(UK) 
+테이블의 모든 행을 유일하게 하는 값을 가진 열(NULL을 허용) 
+NOT NULL(NN) 
+열은 NULL값을 포함할 수 없습니다. 
+CHECK(CK) 
+참이어야 하는 조건을 지정함(대부분 업무 규칙을 설정)
+index(성능) 검색 ...... 관리 필요 ..
+*/
+
+--제약 만드는 시점
+--1. create table 생성시
+--2. create table 생성후에 ..... 필요에 추가 (alter table add constraint
+
+select * from user_constraints where table_name = 'EMP';
+
+create table temp7(
+    --id number primary key 권장하지 않아요 (제약이름 오라클 서버 임의의 ...) 약식
+    id number constraint pk_temp7_id primary key, 
+    name varchar2(20) not null,
+    addr varchar2(50)
+);
+
+select * from user_constraints where table_name = 'TEMP7';
+
+insert into temp7(id, name, addr) values(1, '홍길동', '강남구');
+
+insert into temp7(id, name, addr) values(1, '중복이', '강남구'); --ORA-00001: unique constraint (KOSA.PK_TEMP7_ID) violated
+
+insert into temp7(name, addr) values('중복이', '강남구'); --ORA-01400: cannot insert NULL into ("KOSA"."TEMP7"."ID")
+
+select * from temp7;
+commit;
+
+--------------------------------------------------------------------------------
+--UNIQUE key (UK)
+--테이블에 컬럼 수만큼 제약걸 수 있어요
+--null 허용
+
+create table temp8 (
+    id number constraint pk_temp8_id primary key,
+    name varchar2(20) not null,
+    jumin nvarchar2(6) constraint uk_temp8_jumin unique,
+    addr varchar2(50)
+);
+
+--------------------------------------------------------------------------------
+--테이블 생성 후에 제약 걸기(추천)
+create table temp9(id number);
+
+--기존 테이블에 제약 추가하기
+alter table temp9
+add constraint pk_temp9_id primary key(id);
+
+select * from user_constraints where table_name = 'TEMP9';
+
+--복합키 ....
+create table temp10 (id number, num number);
+
+alter table temp10
+add constraint pk_temp10_id_num primary key(id, num);
+
+select * from user_constraints where table_name = 'TEMP10';
+--유일한 한개의 row : where id = 10 and num = 1
+
+desc temp9;
+
+alter table temp9
+add ename varchar2(50);
+
+--ename 컬럼은 not null
+alter table temp9
+modify(ename not null);
+
+desc temp9;
+
+--------------------------------------------------------------------------------
+--check 제약(업무 룰 : where 조건을 제약처럼)
+--where gender in('남','여') 규칙을 만들어서 적용 (제약)
+
+
+create table temp11(
+    id number constraint pk_temp11_id primary key,
+    name varchar2(20) not null,
+    jumin char(6) not null constraint uk_temp11_jumin unique,
+    addr varchar2(30),
+    age number constraint ck_temp11_age check(age >= 19)
+);
+
+select * from user_constraints where lower(table_name) = 'temp11';
+
+insert into temp11(id, name, jumin, addr, age)
+values(100, '야무지개', '123456', '서울시 강남구', 18);
+--ORA-02290: check constraint (KOSA.CK_TEMP11_AGE) violated
+
+insert into temp11(id, name, jumin, addr, age)
+values(100, '야무지개', '123456', '서울시 강남구', 20);
+
+select * from temp11;
+
+commit;
+--------------------------------------------------------------------------------
+--FOREIGN KEY (FK)
+--참조제약 (테이블과 테이블 사이의 관계 설정)
+select * from emp;
+select * from dept;
+--------------------------------------------------------------------------------
+create table c_emp
+as
+  select empno, ename, deptno from emp where 1=2;
+  
+desc c_emp;
+
+create table c_dept
+as
+  select deptno, dname from dept where 1 = 2;
+  
+desc c_dept;
+
+select * from c_emp;
+select * from c_dept;
+
+--c_dept > deptno(pk)
+alter table c_dept
+add constraint pk_c_dept_deptno primary key(deptno);
+
+alter table c_emp
+add constraint fk_c_emp_deptno foreign key(deptno) references c_dept(deptno);
+
+select * from user_constraints where table_name = 'C_DEPT';
+select * from user_constraints where table_name = 'C_EMP';
+
+--부서
+insert into c_dept(deptno, dname) values(100, '인사팀');
+insert into c_dept(deptno, dname) values(200, '관사팀');
+insert into c_dept(deptno, dname) values(300, '회계팀');
+
+commit;
+
+insert into c_emp(empno, ename, deptno)
+values(9999, '신입이', 10);
+
+insert into c_emp(empno, ename, deptno)
+values(9999, '신입이', 100);
+
+commit;
+select * from c_emp;
+--------------------------------------------------------------------------------
+
+select * from c_emp;
+select * from c_dept;
+
+--제약 삭제하기
+alter table c_emp
+drop constraint fk_c_emp_deptno;
+
+alter table c_emp
+add constraint fk_c_emp_deptno foreign key(deptno) references c_dept(deptno)
+on delete cascade;
+
+select * from user_constraints where table_name = 'C_EMP';
+
+delete from c_dept where deptno = 100;
+
+select * from c_emp;
+
+commit;
+--------------------------------------------------------------------------------
+--초중급 과정 END-------------------------------------------------------------------
+
+--영문테이블 , 영문 컬럼명
+--[학생 성적 테이블]
+--학번의 데이터는 중복되거나 NULL 값을 허용하면 안된다
+--이름 NULL 값을 허용하지 않는다
+--국어
+--영어
+--수학 점수 컬럼은 숫자 타입이고 NULL 값을 허용
+--값을 입력하지 않으면 default로 0값을 갖는다
+--총점 ,평균 컬럼은 가상컬럼으로(조합컬럼) 생성한다
+--학과코드는 학과 테이블에 학과코드를 참조한다
+--학번 , 이름 , 국어 , 영어 , 수학 , 총점 , 평균 , 학과코드
+create table students(
+    s_no number,
+    s_name varchar(20) not null,
+    kor_p number default 0,
+    eng_p number default 0,
+    math_p number default 0,
+    sum_p number GENERATED ALWAYS as (kor_p + eng_p + math_p) VIRTUAL,
+    avg_p number GENERATED ALWAYS as (trunc((kor_p + eng_p + math_p)/3)) VIRTUAL,
+    d_no number not null
+);
+
+alter table students
+add constraint pk_students_s_no primary key(s_no);
+?
+--학과 테이블
+--학과코드 데이터는 중복되거나 NULL 값을 허용하면 안된다,
+--학과명 은 null값을 허락하지 않는다
+--학과코드 , 학과명
+create table departments(
+    d_no number,
+    d_name varchar(20) not null
+);
+
+alter table departments
+add constraint pk_departments_d_no primary key(d_no);
+
+alter table students
+add constraint fk_students_d_no foreign key(d_no) references departments(d_no);
+
+--샘플 데이터 insert ..
+insert into departments(d_no, d_name)
+values(1, '경제');
+insert into departments(d_no, d_name)
+values(2, '경영');
+insert into departments(d_no, d_name)
+values(3, '컴퓨터');
+insert into departments(d_no, d_name)
+values(4, '기계');
+
+insert into students(s_no, s_name, kor_p, eng_p, math_p, d_no)
+values(1, '홍길동', 50, 60, 70, 1);
+insert into students(s_no, s_name, kor_p, eng_p, math_p, d_no)
+values(2, '김길동', 10, 20, 30, 1);
+insert into students(s_no, s_name, kor_p, eng_p, math_p, d_no)
+values(3, '최길동', 90, 80, 70, 2);
+insert into students(s_no, s_name, kor_p, eng_p, math_p, d_no)
+values(4, '공길동', 50, 60, 70, 2);
+insert into students(s_no, s_name, kor_p, eng_p, math_p, d_no)
+values(5, '곽길동', 20, 40, 60, 3);
+insert into students(s_no, s_name, kor_p, eng_p, math_p, d_no)
+values(6, '양길동', 10, 30, 50, 3);
+insert into students(s_no, s_name, kor_p, eng_p, math_p, d_no)
+values(7, '조길동', 50, 60, 70, 4);
+insert into students(s_no, s_name, kor_p, eng_p, math_p, d_no)
+values(8, '이길동', 40, 60, 80, 4);
+
+--그리고 select 결과는
+--학번 , 이름 , 총점, 평균 , 학과코드 , 학과명 을 출력하세요
+select s_no as 학번, s_name as 이름, sum_p as 총점, avg_p as 평균, s.d_no as 학과코드, d.d_name as 학과명
+from students s join departments d on s.d_no = d.d_no;
+
+
+
+
+
+
+
+
+
+
+
