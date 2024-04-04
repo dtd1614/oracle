@@ -2022,11 +2022,485 @@ select s_no as 학번, s_name as 이름, sum_p as 총점, avg_p as 평균, s.d_no as 학�
 from students s join departments d on s.d_no = d.d_no;
 
 
+----------------------------정규식 과제-------------------------------------------
+create table client(
+    password varchar2(20) not null
+);
+
+insert into client(password) values ('ghdrlfehd');
+insert into client(password) values ('dkendlsh!');
+insert into client(password) values ('roffjrtl123');
+insert into client(password) values ('dkdlvhs123!');
+insert into client(password) values ('Gytjd123!');
+insert into client(password) values ('!321Xhdlr');
+insert into client(password) values ('!2a');
+
+commit;
+
+select * from client;
+
+-- 알파벳, 숫자, 특수문자 모두 포함하는 6자리 이상의 비밀번호 출력
+select password
+from client
+where regexp_like(password, '[a-zA-Z]') --알파벳 포함하는지 검사
+  and regexp_like(password, '[0-9]') --숫자 포함하는지 검사
+  and regexp_like(password, '[^a-zA-Z0-9]') --특수문자 포함하는지 검사
+  and length(password) >= 6; --6자리 이상인지 검사
+
+--아래처럼 정규식 한번에 몰아넣으면 인식이 안되서 위처럼 분리함
+--select password
+--from client
+--where regexp_like(password, '^(?=.*[a-zA-Z])(?=.*[0-9])(?=.*[^a-zA-Z0-9]).{6,}$');
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+--View 
+--오라클.pdf  (192page)
+--가상 테이블 (subquery -> from () -> in line view -> join -> 필요할때마다 만들어서 ...)
+--필요한 가상테이블을 객체형태로 만들어서 사용하자 (영속적으로)
+--view sql문장을 가지고 있는 객체 
+--view 사용하는 데 편하게 >> 테이블 처럼 ...사용 
+--혹자는  view sql 문장 덩어리 ....
+
+
+/*
+CREATE  [OR  REPLACE]  [FORCE | NOFORCE]  VIEW view_name [(alias[,alias,...])] 
+AS Subquery  
+[WITH  CHECK  OPTION  [CONSTRAINT  constraint ]] 
+[WITH  READ  ONLY]
+
+OR REPLACE                 이미 존재한다면 다시 생성한다.
+FORCE                      Base Table  유무에 관계없이 VIEW 을 만든다.
+NOFORCE                    기본 테이블이 존재할 경우에만 VIEW 를 생성한다.
+view_name VIEW 의 이름
+Alias Subquery 를 통해 선택된 값에 대한 Column 명이 된다.
+Subquery                    SELECT 문장을 기술한다.
+WITH CHECK OPTION           VIEW    에 의해 액세스 될 수 있는 행만이 입력,갱신될 수 있다. 
+Constraint CHECK OPTON 제약 조건에 대해 지정된 이름이다.
+WITH READ ONLY 이 VIEW 에서 DML 이 수행될 수 없게 한다.
+
+*/
+
+create view view001
+as
+  select * from emp;
+
+-- SYSTEM PRIVILEGES
+--GRANT CREATE ANY VIEW TO "KOSA" WITH ADMIN OPTION;
+
+--view001 는 테이블과 똑같은 방법으로 사용가능
+
+select * from view001;
+--사실은 view001 가지고 있는 문장이 실행 (결과)
+
+select * from view001 where empno=7788;
+
+/*
+view 가상 테이블 
+사용법: 일반 테이블과 동일 (뷰을 통해서 ....select , insert , update , delete  ...실 테이블 데이터)
+단 view 볼수 있는 데이터만 가능 
+
+view 통해서 DML 작업 가능 (실제로는 하지 마세요) 
+
+조회 (편하게).....
+
+view 목적
+1. 개발자의 편리성 : join 처리시 테이블이 없다면 .. subquery(in line view) .... view 객체를 만들어 두고 ...재사용
+2. 쿼리 단순화 :view 를 통해서 가상 테이블 .... join 시 view 사용
+3. DBA  보안 : 원본 테이블 노출하지 않고 view 만들어서 특정 컬럼의 데이터만 노출 ...
+*/
+
+create or replace view v_001
+as
+  select empno , ename from emp;
+  
+  
+select * from v_001;
+
+create or replace view v_002
+as
+  select empno , ename , job , hiredate from emp;
+  
+select * from v_002;  
+
+--select sal from v_002;  --sal  컬럼은  view 볼 수 없어요
+
+--편리성 (자주 사용 쿼리)
+create or replace view v_002
+as
+  select e.empno , e.ename , e.deptno , d.dname
+  from emp e join dept d
+  on e.deptno = d.deptno;
+  
+ 
+select * from v_002 where empno=7788;
+
+select * from v_002;
+------------------------------------------------------------------------------------
+--실무에서 가장 많이 쓰이는 쿼리( 중급 )
+ --1. hint) join
+ --2. hint) 부서의 평균을 담고 있는 테이블 있다면 .... (가상테이블)
+ 
+ --자기 부서의 평균 월급보다 더 많은 월급을 받는 사원의 사번 , 이름 , 부서번호 , 부서별 평균월급을 출력하세요
+ 
+  select *
+  from emp e join (select deptno , trunc(avg(sal)) as avgsal from emp group by deptno) s
+  on e.deptno = s.deptno
+  where e.sal > s.avgsal;
+ -------------------------------------------------------------------------------------------- 
+
+--직종별 평균 급여를 담고 있는 view 
+create view v_003
+as
+  select deptno , trunc(avg(sal)) as avgsal 
+  from emp 
+  group by deptno;
+  
+
+  select *
+  from emp e join v_003 s
+  on e.deptno = s.deptno   --편하구나 ... 
+  where e.sal > s.avgsal;
+  
+  /*
+  view  나도 나름 테이블이다 .... from ....
+  view 를 통해서 view 가 볼수있는 데이터 .....
+  DML  가능 하다 (insert , update , delete)
+  */
+  
+ select * from copyemp; 
+  
+ create or replace view v_emp
+ as
+   select empno , ename , job , hiredate , sal from copyemp;
+   
+
+update v_emp
+set sal=0;
+
+select * from copyemp;
+select * from v_emp;
+
+rollback;
+
+update v_emp
+set comm = 0; --view 가 볼수 없는 데이터 
+
+
+-- 30번 부서 사원들의  직종, 이름, 월급을 담는 VIEW를 만드는데,
+-- 각각의 컬럼명을 직종, 사원이름, 월급으로 ALIAS를 주고 월급이
+-- 300보다 많은 사원들만 추출하도록 하라.  view101
+create or replace view view101
+as
+  select job , ename, sal
+  from emp
+  where deptno=30 and sal > 300;
+
+--view 통해서 DML 작업 ...... 단일 테이블 view .....
+
+--부서별 평균월급을 담는 VIEW를 만들되, 평균월급이 2000 이상인
+--부서만 출력하도록 하라.  view102
+create view view102
+as
+    select deptno , avg(sal) as avgsal
+    from emp
+    group by deptno
+    having avg(sal) >= 2000;
+    
+select * from view102;
+--------------------------------------------------------------------------------
+--개발자 관점에서 바라보는  SQL----------------------------------------------------
+--제11장 SEQUENCE  (오라클.pdf ... 185page )
+/*
+CREATE  SEQUENCE  sequence_name 
+[INCREMENT  BY  n] 
+[START  WITH  n] 
+[{MAXVALUE n | NOMAXVALUE}] 
+[{MINVALUE n | NOMINVALUE}] 
+[{CYCLE | NOCYCLE}] 
+[{CACHE | NOCACHE}]; 
+
+sequence_name           SEQUENCE 의 이름입니다.
+INCREMENT BY            n 정수 값인 n 으로 SEQUENCE 번호 사이의 간격을 지정.
+                        이 절이 생략되면 SEQUENCE 는 1 씩 증가.
+START WITH             n 생성하기 위해 첫번째 SEQUENCE 를 지정.
+                        이 절이 생략되면 SEQUENCE 는 1 로 시작.
+MAXVALUE n SEQUENCE 를 생성할 수 있는 최대 값을 지정.
+NOMAXVALUE 오름차순용 10^27 최대값과 내림차순용-1 의 최소값을 지정.
+MINVALUE n 최소 SEQUENCE 값을 지정.
+NOMINVALUE 오름차순용 1 과 내림차순용-(10^26)의 최소값을 지정.
+CYCLE | NOCYCLE 최대 또는 최소값에 도달한 후에 계속 값을 생성할 지의 여부를
+지정. NOCYCLE 이 디폴트.
+CACHE | NOCACHE 얼마나 많은 값이 메모리에 오라클 서버가 미리 할당하고 유지
+하는가를 지정. 디폴트로 오라클 서버는 20 을 CACHE
+
+*/
+desc board;
+drop table board;
+
+create table board(
+    boardid number constraint pk_board_boardid primary key, --not null , unique , index 설정
+    title nvarchar2(50)
+);
+
+select * from user_constraints where table_name ='BOARD';
+
+insert into board(boardid, title) values(1,'1번글');
+insert into board(boardid, title) values(2,'2번글');
+
+select * from board;
+rollback;
+--규칙 : 글번호 처음글이면 1 ..... 다음 글이면 2 ....3 ....4
+select * from board;
+
+--1. 
+select count(*) + 1 from board;
+
+insert into board(boardid, title) 
+values((select count(boardid) + 1 from board),'1번글');
+
+insert into board(boardid, title) 
+values((select count(boardid) + 1 from board),'2번글');
+
+insert into board(boardid, title) 
+values((select count(boardid) + 1 from board),'3번글');
+
+select * from board;
+
+--글 삭제
+delete from board where boardid=1;
+
+insert into board(boardid, title) 
+values((select count(*) + 1 from board),'4번글');
+
+--기존 글번와 충돌 (boardid pk)
+rollback;
+---------------------------------------------------------------------------------
+--순번을 만드는데 데이터가 삭제되어도 순번을 유지하고 싶어요
+--1. 1번 ... 다음글  1+1 , 2+1 ....
+
+select nvl(max(boardid),0) + 1 from board; --값이 없으면 null 반환
+
+insert into board(boardid, title)
+values((select nvl(max(boardid),0) + 1 from board), '1번글');
+
+insert into board(boardid, title)
+values((select nvl(max(boardid),0) + 1 from board), '2번글');
+
+select * from board;
+
+delete from board where boardid=1;
+
+insert into board(boardid, title)
+values((select nvl(max(boardid),0) + 1 from board), '3번글');
+
+select * from board;
+--------------------------------------------------------------------------------
+--채번하면 .... table 종속적이다 
+--------------------------------------------------------------------------------
+--채번 (객체) >> static 처럼 >> 모든 테이블이 공유
+
+create sequence board_num;
+
+--1. 채번하기
+select board_num.nextval from dual; --채번 (번호표 뽑기)
+
+--2. 채번확인하기
+select board_num.currval from dual; --현재까지 채번한 번호 확인(마지막)
+
+--board_num 공유객체 : 하나의 테이블에서만 사용하는 것이 아니고 여러개의 테이블에 사용가능
+
+/*
+A테이블        B테이블      C테이블
+1             3             4
+2             6
+5             
+
+*/
+create table kboard (
+    num number constraint pk_kboard_num primary key,
+    title varchar2(20)
+);
 
 
 
+select * from board;
+insert into board(boardid,title)
+values(board_num.nextval,'4번글');
+
+select * from board;
 
 
+
+insert into kboard(num,title)
+values(board_num.nextval,'1번글');
+
+select * from kboard;
+commit;
+--------------------------------------------------------------------------------
+/*
+게시판
+공지사항, 자유게시판, 답변형게시판 등
+1        3          4   
+2
+시퀀스 객체 한개
+
+
+공지사항, 자유게시판, 답변형게시판 등
+1        1          1
+
+시퀀스 객체 3개
+
+sequence 객체 (DB 소프트웨어)
+오라클 (0)
+my-sql (x)
+mariadb (0)
+postgreSQL (0)
+
+순번)
+ms-sql
+create table board(boardnum int identity(1,1) ....) >> 테이블 종속
+insert into board(title) values('방가');
+
+my-sql
+create table board(boardnum int auto-increment, ....) >>  테이블 종속
+insert into board(title) values('방가');
+
+*/
+--옵션
+create sequence seq_num
+start with 10
+increment by 2;
+
+select seq_num.nextval from dual;
+
+select seq_num.currval from dual;
+
+--------------------------------------------------------------------------------
+--개발자 쿼리--
+--rownum
+/*
+게시판 1...... 100번글
+
+최신글 ... 마지막 글 
+select boardid, title , content from board order by boardid desc
+
+.....글 ... 10000건
+
+1~102번
+pagesize : 10 건
+page 개수 : 11개
+
+[1][2][3][4][5][6][7][8][9][10][11]
+
+[1] 1~10
+[2] 11~20
+[3] 21~30
+*/
+
+select rownum, e.*
+from (
+        select empno, ename, sal
+        from emp
+        order by sal desc --기준 데이터 만들기
+     )e; --순번을 붙인다
+
+--Top-n 쿼리 (기준이 되는 데이터 순으로 정렬시키고 상위 n개 가지고 오기)
+--ms-sql : select top 10, * from emp order by sal desc;
+
+--Top-n 오라클(x)
+--rownum 순번 부여 상위 n 조건을 만들어서
+--1. 정렬 기준을 만들어라(선행)
+--2. 정렬된 기준에 rownum 붙이고 데이터 추출
+
+--급여를 많이 받는 사원 5명
+--1. 기준 데이터
+--2. 순번 부여하기
+--3. 조건 걸어서 가져오기
+
+select *
+from(
+    select rownum as num, e.empno, e.sal
+    from(
+        select empno, sal
+        from emp
+        order by sal desc
+    ) e
+) n where num <=5; -- 대용량 데이터 페이지 처리 원리 (POINT)
+
+--12c 버전-- 에서 top 쿼리
+select empno, sal
+from emp
+order by sal, empno fetch first 5 rows only;
+
+--------------------------------------------------------------------------------
+/*
+데이터 10만건, 20만건
+select * from board;
+데이터를 나누어서 가지고 와야 합니다
+totaldatacount = 104건 
+pagesize = 10
+pagecount = 11개 페이지
+
+[1][2][3][4][5][6][7][8][9][10][11]
+<a href = "page.do?pageno=1">1번</a> --> 서버 전송 --> select ... between 1 and 10 10건
+
+1. rownum ... 조건처리
+2. rownum ... between A and B
+*/
+
+--HR 계정이동
+show user;
+
+select * from employees;
+--107건
+--pagesize = 10
+--[1] > 1~10
+--...
+--[5] > 11~20
+--------------------------------------------------------------------------------
+
+--1. 기준 데이터 만들기 (정렬)
+--요구사항 (사번이 낮은 순)
+
+select * from employees order by employee_id asc;
+
+
+--2. 기준 데이터 순번 부여하기
+
+select rownum as num, e.*
+from (
+        select *
+        from employees
+        order by employee_id asc
+     )e
+where rownum <= 50; --정렬된 데이터에 내부적으로 생성된 rownum
+     
+--3. 최종 데이터 추출
+
+select *
+from(
+    select rownum as num, e.*
+    from (
+        select *
+        from employees
+        order by employee_id asc
+     )e
+    where rownum <= 50
+)n where num >= 41;
+
+select *
+from(
+    select rownum as num, e.*
+    from (
+        select *
+        from employees
+        order by employee_id asc
+     )e
+)n where num between 40 and 50;
+
+--------------------------------------------------------------------------------
+--조금씩 .. 분석함수, 통계처리, 다차원함수 등등 ....
 
 
 
