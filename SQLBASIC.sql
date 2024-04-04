@@ -2501,7 +2501,23 @@ from(
 
 --------------------------------------------------------------------------------
 --조금씩 .. 분석함수, 통계처리, 다차원함수 등등 ....
+--------------------------------------------------------------------------------
 
+--JDBC 실습쿼리 
+create table dmlemp
+as
+    select * from emp;
+
+select * from dmlemp;    
+
+alter table dmlemp
+add constraint pk_dmlemp_empno primary key(empno);
+
+select * from user_constraints where table_name = 'DMLEMP';
+
+select * from dmlemp;
+
+commit;
 
 
 
