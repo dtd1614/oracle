@@ -2520,4 +2520,251 @@ select * from dmlemp;
 commit;
 
 
+--------------------------------------------------------------------------------
+
+create table trans_A(
+    num number,
+    name varchar2(20)
+);
+
+create table trans_B(
+    num number constraint pk_trans_B_num primary key,
+    name varchar2(20)
+);
+
+select * from trans_A;
+select * from trans_B;
+
+select * from emp;
+desc emp;
+--------------------------------------------------------------------------------
+--분석함수 (통계 쿼리 만들기)
+--행 데이터 > 열 데이터
+--열 데이터 > 행 데이터
+--기본은 decode, case 사용
+--11g 버전부터 pivot 함수 ....행을 열로 전환
+/*
+deptno count
+10     2
+20     5
+30     3
+
+데이터 차트 만들거나 통계적 정보 보기 위해서 
+deptno_10 deptno_20 deptno_30
+2         5         3
+
+*/
+
+select deptno, count(*) as cnt 
+from emp
+group by deptno
+order by deptno asc;
+
+/*
+10  3
+20  5
+30  6
+*/
+
+select deptno, case when deptno = 10 then 1 else 0 end as dept_10,
+               case when deptno = 20 then 1 else 0 end as dept_20,
+               case when deptno = 30 then 1 else 0 end as dept_30
+from emp
+order by deptno asc; --order by 1;
+
+--dept_10 컬럼이름 10번 , dept_20 20번
+--이 상황에서 보면 deptno 필요없다
+
+select sum(case when deptno = 10 then 1 else 0 end) as dept_10,
+       sum(case when deptno = 20 then 1 else 0 end) as dept_20,
+       sum(case when deptno = 30 then 1 else 0 end) as dept_30
+from emp
+order by deptno asc;
+/*
+행 데이터를 열 데이터로 변환
+dept_10 dept_20 dept_30
+3	    5	    6
+
+각각의 컬럼에 의미를 부여 .... dept_10
+*/
+
+--rownum 데이터 정렬 기준 ...
+select max(case when deptno = 10 then ecount else null end) as dept_10,
+       max(case when deptno = 20 then ecount else null end) as dept_20,
+       max(case when deptno = 30 then ecount else null end) as dept_30
+from (
+        select deptno, count(*) as ecount
+        from emp
+        group by deptno
+     ) x;
+     
+/*
+select *
+from(피벗 대상 쿼리문)
+pivot(그룹함수(집계컬럼) for 피벗컬럼 in(피벗컬럼값 as 별칭....)
+
+오라클 11g부터 PIVOT 기능을 제공합니다. 
+기존 이하버전에서는 DECODE 함수를 이용하여 로우를 컬럼으로 변경하는 작업을 하였습니다. 
+PIVOT 기능을 이용하면 DECODE의 복잡하고 비직관적인 코드를 조금 더 직관적으로 작성할 수 있습니다.
+아쉬운 접은 PIVOT 기능을 사용하더라도 PIVOT을 할 컬럼을 미리 정의를 해 놓아야 한다는 점이다.
+*/
+
+--통계(월별 구해라)
+
+--직종별, 월 별 입사 건수
+select * from emp;
+/*
+1980-12-17 00:00:00
+1981-02-20 00:00:00
+1981-02-22 00:00:00
+1981-04-02 00:00:00
+
+        1월, 2월, 3월
+Manager  1   1    ....
+clerk    0   1
+*/
+
+-- row 데이터
+select job, to_char(hiredate, 'FMMM') || '월' as hire_month 
+from emp;
+
+/*     1월  2월  3월
+CLERK   1   0    1
+
+from(피벗 대상 쿼리문)
+pivot(그룹함수(집계컬럼) for 피벗컬럼 in(피벗컬럼값 as 별칭....)
+*/
+
+select * 
+from(
+     select job, to_char(hiredate, 'FMMM') || '월' as hire_month 
+     from emp     
+    ) pivot(count(*) for hire_month 
+            in('1월' as "1월 데이터",'2월' as "2월 데이터",'3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'));
+            
+--decode 전통적인 구현한다면   
+select job
+       ,sum(decode(to_char(hiredate,'FMMM'),'1',1,0)) "1월"
+       ,sum(decode(to_char(hiredate,'FMMM'),'2',1,0)) "2월"
+       ,sum(decode(to_char(hiredate,'FMMM'),'3',1,0)) "3월"
+       ,sum(decode(to_char(hiredate,'FMMM'),'4',1,0)) "4월"
+       ,sum(decode(to_char(hiredate,'FMMM'),'5',1,0)) "5월"
+       ,sum(decode(to_char(hiredate,'FMMM'),'6',1,0)) "6월"
+       ,sum(decode(to_char(hiredate,'FMMM'),'7',1,0)) "7월"
+       ,sum(decode(to_char(hiredate,'FMMM'),'8',1,0)) "8월"
+       ,sum(decode(to_char(hiredate,'FMMM'),'9',1,0)) "9월"
+       ,sum(decode(to_char(hiredate,'FMMM'),'10',1,0)) "10월"
+       ,sum(decode(to_char(hiredate,'FMMM'),'11',1,0)) "11월"
+       ,sum(decode(to_char(hiredate,'FMMM'),'12',1,0)) "12월"
+from emp
+group by job;
+
+--직종별, 부서별 급여 합계
+select job, deptno, sum(sal)--, count(sal)
+from emp
+group by job, deptno
+order by job;
+
+select *
+from (
+        select job, deptno, sal from emp
+      )pivot(sum(sal) for deptno in ('10' as deptno10, '20' as deptno20, '30' as deptno30));
+     
+select *
+from(
+        select deptno, job, sal from emp
+    )pivot(sum(sal) for job in ('PRESIDENT' as p, 
+                                'ANALYST' as a, 
+                                'MANAGER' as m, 
+                                'SALESMAN' as s, 
+                                'CLERK' as c));
+
+--------------------------------------------------------------------------------
+--1. decdoe
+select deptno
+       ,sum(decode(job, 'PRESIDENT', sal)) as p
+       ,sum(decode(job, 'ANALYST', sal)) as a
+       ,sum(decode(job, 'MANAGER', sal)) as m
+       ,sum(decode(job, 'SALESMAN', sal)) as s
+       ,sum(decode(job, 'CLERK', sal)) as c
+from emp
+group by deptno
+order by deptno desc;
+
+--2. case
+select deptno
+       ,sum(case when job = 'PRESIDENT' then sal end) as p
+       ,sum(case when job = 'ANALYST' then sal end) as a
+       ,sum(case when job = 'MANAGER' then sal end) as m
+       ,sum(case when job = 'SALESMAN' then sal end) as s
+       ,sum(case when job = 'CLERK' then sal end) as c
+from emp
+group by deptno
+order by deptno desc;
+--------------------------------------------------------------------------------
+
+--사원테이블에서 부서별 급여 합계와 전체 급여합을 출력하세요
+
+select deptno, sum(sal)
+from emp
+group by deptno
+union all
+select null, sum(sal) from emp;
+
+select job, sum(sal)
+from emp
+group by rollup(job);
+--나는 직종별 급여의 합도 구하고 모든 직종의 급영의 합도 구하겠다
+
+select job , deptno , sum(sal)
+from emp
+group by rollup(job, deptno); --우측 끝 컬럼부터 연산에서 제외 ...
+
+/*
+CLERK	    10	   1300
+CLERK	    20	   1900
+CLERK	    30	   950
+CLERK		       4150  --소계
+ANALYST	    20	   6000
+ANALYST		       6000  --소계
+MANAGER	    10	   2450
+MANAGER	    20	   2975
+MANAGER	    30	   2850
+MANAGER		       8275  --소계
+SALESMAN	30	   5600
+SALESMAN		   5600  --소계
+PRESIDENT	10	   5000
+PRESIDENT		   5000  --소계
+		          29025  --합계
+*/
+select  deptno , job ,  sum(sal)
+from emp
+group by rollup(deptno,job);
+--------------------------------------------------------------------------------
+--다차원 쿼리 없이
+
+select deptno , job , sum(sal)
+from emp
+group by deptno ,job
+    union all
+select deptno , null , sum(sal)
+from emp
+group by deptno
+    union all
+select null , job , sum(sal)
+from emp
+group by job
+    union all
+select null , null , sum(sal)
+from emp;
+
+--다차원 쿼리 모든 컬럼의 집계 .... cube  모든 컬럼의 소계
+select deptno , job, sum(sal)
+from emp
+group by cube(deptno,job)
+order by deptno ,job;
+
+--------------------------------------------------------------------------------
+--순위함수
+
 
