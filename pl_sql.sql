@@ -814,6 +814,9 @@ is
 select empno , ename ,deptno, f_get_dname(empno)
 from emp 
 where empno=7788;
+
+--날짜를 parameter 던지고, 그 결과를 2024년 04월 09일 return 하는 함수
+--f_get_formatdate()
 --------------------------function END------------------------------------------
 
 --[트리거 : Trigger]
@@ -937,10 +940,10 @@ insert into tri_emp values(200,'홍길동');
 update tri_emp set ename='변경' where empno= 200;
 delete from tri_emp where empno=200;
 -----------------------------------------------------------------------------
---예제1) 테이블에 INSERT, UPDATE, DELETE 를 할 때 user, 구분(I,U,D), sysdate 를 기록하는 
+--예제1) 테이블에 INSERT, UPDATE, DELETE 를 할 때 user, 구분(I,U,D), sysdate 를 기록하는
 --테이블(emp_audit)에 내용을 저장한다.
---FOR EACH ROW 이 옵션을 사용하면 
---행 레벨 트리거가 되어 triggering 문장
+--FOR EACH ROW 이 옵션을 사용하면
+--[행 레벨 트리거]가 되어 triggering 문장
 --에 의해 영향받은 행에 대해 각각 한번씩 실행하고 사용하지
 --않으면 문장 레벨 트리거가 되어 DML 문장 당 한번만 실행된다.
 
@@ -969,13 +972,18 @@ create table emp2
 as
     select * from emp;
 
+--테이블
+select * from emp_audit;
+select * from emp2;
+
+--추적 테이블 ....
 create or replace trigger emp_audit_tr
- after insert or update or delete on emp2
+after insert or update or delete on emp2
  --for each row
 begin
- if inserting then
+ if inserting then --inserting 제공되는 변수 >> after insert
       insert into emp_audit
-      values(emp_audit_tr.nextval, user, 'inserting', sysdate);
+      values(emp_audit_tr.nextval, user, 'inserting', sysdate); -- user (사용자계정 : KOSA)
  elsif updating then
       insert into emp_audit
       values(emp_audit_tr.nextval, user, 'updating', sysdate);
@@ -988,9 +996,11 @@ end;
 -- for each row 선언 안했을 때 (명령어 한 번에 대하여 한 건으로 기록된다.)
 select * from emp2;
 rollback;
+
 update emp2 
 set deptno = 20
 where deptno = 10;
+--3개 행 이(가) 업데이트되었습니다.
 
 select * from emp_audit;
 
@@ -1022,7 +1032,10 @@ update emp2 set deptno = 20 where deptno = 10;
 
 select * from emp_audit;
 
+delete from emp2 where deptno = 20;
 
+
+rollback;
 --------------------------------------------------------------------
 --INSERT, UPDATE, DELETE로 변경되는 내용에 대하여 전/후 데이터를 기록한다.
 drop table emp_audit;
@@ -1081,9 +1094,9 @@ create table tri_order
 --before 트리거의 동작시점이 실제 tri_order 테이블 insert 되기 전에
 --트리거 먼저 동작 그 이후 insert 작업
 create or replace trigger trigger_order
-before insert on tri_order
+before insert on tri_order --before 걸면 tri_order 실제 insert 작업 전에 트리거를 먼저 동작
 BEGIN
-  IF(to_char(sysdate,'HH24:MM') not between '11:00' and '16:00') THEN
+  IF(to_char(sysdate,'HH24:MM') not between '10:00' and '16:00') THEN
      RAISE_APPLICATION_ERROR(-20002, '허용시간 오류 쉬세요');
   END IF;
 END;
@@ -1143,7 +1156,7 @@ after insert on t_01
 for each row
 BEGIN
   insert into t_02(no, pname)
-  values(:NEW.no ,:NEW.pname);
+  values(:NEW.no ,:NEW.pname); -- 개발자 필수 (:NEW, :OLD)
 END;
 
 --입고
@@ -1185,7 +1198,8 @@ delete from t_01 where no=1;
 select* from t_01;
 select* from t_02;
 
-commit
+commit;
+
 --------------------------------------------------------------------------------
 create or replace procedure usp_EmpListByDeptno
 (
@@ -1201,7 +1215,71 @@ is
 var out_cursor REFCURSOR
 exec usp_EmpListByDeptno(10,:out_cursor)
 print out_cursor;
+--------------------------트리거 사용 예제-----------------------------------------
+create table mail
+(
+  mno number,
+  sender varchar2(20),
+  recipient varchar2(20),
+  transdate date default sysdate
+);
 
+create table mail_backup
+(
+  mno number,
+  sender varchar2(20),
+  recipient varchar2(20),
+  transdate date,
+  deletedate date default sysdate
+);
+
+create or replace trigger delete_mail_tri
+after delete on mail
+for each row
+BEGIN
+  insert into mail_backup(mno, sender, recipient, transdate)
+  values(:OLD.mno, :OLD.sender, :OLD.recipient, :OLD.transdate);
+END;
+
+insert into mail(mno, sender, recipient)
+values(1, 'dtd1614', 'dtd6055');
+
+delete from mail where mno = 1;
+commit;
+
+select * from mail_backup;
+
+
+--------------매월 마지막 일요일 밤 12시에 백업 메일 삭제 스케줄러-----------------------
+GRANT CREATE JOB TO KOSA; --SYTEM 사용자로 KOSA 사용자에 권한부여
+GRANT MANAGE SCHEDULER TO KOSA; --SYTEM 사용자로 KOSA 사용자에 권한부여
+--KOSA로 사용자 변경
+
+CREATE OR REPLACE PROCEDURE delete_mail_backup_procedure AS 
+BEGIN
+  delete from mail_backup;
+  commit;
+END;
+
+BEGIN
+    DBMS_SCHEDULER.CREATE_JOB (
+        job_name          => 'delete_mail_backup_scheduler',
+        job_type          => 'STORED_PROCEDURE',
+        job_action        => 'delete_mail_backup_procedure',
+        start_date        => NEXT_DAY(TRUNC(LAST_DAY(SYSDATE), 'DAY') - 7, '일요일') + INTERVAL '1' DAY - INTERVAL '1' SECOND,
+        repeat_interval   => 'FREQ=MONTHLY; BYDAY=-1 SUN; BYHOUR=23; BYMINUTE=59; BYSECOND=59'  
+    );
+END;
+
+--SELECT NEXT_DAY(TRUNC(LAST_DAY(SYSDATE), 'd') - 7, 1) + INTERVAL '1' DAY - INTERVAL '1' SECOND
+--FROM dual;
+
+
+BEGIN
+    DBMS_SCHEDULER.ENABLE ('delete_mail_backup_scheduler');
+END;
+
+SELECT * FROM user_scheduler_job_log;
 --------------------------------------------------------------------------------
 create or replace procedure usp_Update_EmpData
 (
